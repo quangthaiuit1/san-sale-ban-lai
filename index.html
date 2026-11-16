@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Tính giá thực trả trên sàn sau ưu đãi, voucher và xu, rồi so với giá shop thu lại theo % giá gốc.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Săn Sale Bán Lại</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: form on the left (what you pay), sticky receipt + verdict on the right, comparison table below. */
+:root {
+  --bg: #F2F4F8;
+  --surface: #FFFFFF;
+  --surface-2: #F7F8FB;
+  --ink: #141A2A;
+  --muted: #5B6478;
+  --line: #DCE1EA;
+  --accent: #3446D8;
+  --accent-soft: #E7EAFD;
+  --alt: #B26B12;
+  --alt-soft: #FBEFD9;
+  --gain: #0B8457;
+  --gain-soft: #DDF3E8;
+  --loss: #C2362C;
+  --loss-soft: #FBE3E0;
+  --focus: #3446D8;
+  --font-display: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1120; --surface: #161B2D; --surface-2: #1B2135; --ink: #E8EBF4; --muted: #99A1B6; --line: #2A3149;
+    --accent: #8E9BFF; --accent-soft: #232A55; --alt: #F0B04E; --alt-soft: #3A2C14;
+    --gain: #3ED39B; --gain-soft: #12382B; --loss: #FF8075; --loss-soft: #3F201D; --focus: #8E9BFF;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1120; --surface: #161B2D; --surface-2: #1B2135; --ink: #E8EBF4; --muted: #99A1B6; --line: #2A3149;
+  --accent: #8E9BFF; --accent-soft: #232A55; --alt: #F0B04E; --alt-soft: #3A2C14;
+  --gain: #3ED39B; --gain-soft: #12382B; --loss: #FF8075; --loss-soft: #3F201D; --focus: #8E9BFF;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px; }
+
+header { display: grid; gap: 6px; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 24px; align-items: start; }
+@media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 20px; min-width: 0; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: grid; gap: 18px; min-width: 0; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; margin: 0; }
+.formula { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
+
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > label, .label { font-size: 13px; font-weight: 600; }
+.hint { font-size: 12px; color: var(--muted); }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 480px) { .row2 { grid-template-columns: minmax(0, 1fr); } }
+
+.input { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); min-width: 0; transition: border-color .15s; }
+.input:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+.input input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: 500 15px/1 var(--font-num); padding: 11px 12px; outline: none; font-variant-numeric: tabular-nums; }
+.input input[type="text"].plain { font-family: var(--font-body); }
+.input input:disabled { color: var(--muted); }
+.unit { display: grid; place-items: center; padding: 0 12px; color: var(--muted); font: 500 13px var(--font-num); border-left: 1px solid var(--line); }
+
+.seg { display: inline-flex; border-left: 1px solid var(--line); }
+.seg button { border: 0; background: transparent; color: var(--muted); font: 600 13px var(--font-num); padding: 0 12px; cursor: pointer; min-width: 40px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button:first-child[aria-pressed="true"] { }
+.input .seg button:last-child { border-radius: 0 7px 7px 0; }
+.seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+.voucher { display: grid; gap: 8px; padding: 14px; border: 1px dashed var(--line); border-radius: 8px; }
+.voucher-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.opts .field { gap: 4px; }
+@media (max-width: 480px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.warn-msg { color: var(--loss); }
+
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 500 13px var(--font-num); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.chip:focus-visible, .btn:focus-visible, .del:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Result */
+.result { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+@media (max-width: 880px) { .result { position: static; } }
+.verdict { border-radius: 8px; padding: 16px; display: grid; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); }
+.verdict.gain { background: var(--gain-soft); border-color: transparent; }
+.verdict.loss { background: var(--loss-soft); border-color: transparent; }
+.verdict-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.verdict .label { color: var(--muted); font-weight: 500; }
+.big { font: 600 clamp(28px, 5vw, 36px)/1.1 var(--font-num); letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.verdict.gain .big { color: var(--gain); }
+.verdict.loss .big { color: var(--loss); }
+.pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface); color: var(--muted); }
+.verdict.gain .pill { color: var(--gain); }
+.verdict.loss .pill { color: var(--loss); }
+
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.stat { display: grid; gap: 2px; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); min-width: 0; }
+.stat .k { font-size: 12px; color: var(--muted); font-weight: 500; }
+.stat .v { font: 600 18px var(--font-num); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat.pay .v { color: var(--accent); }
+.stat.sell .v { color: var(--alt); }
+
+.bars { display: grid; gap: 10px; }
+.bar { display: grid; gap: 4px; }
+.bar-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.bar-head b { font-family: var(--font-num); font-weight: 600; color: var(--ink); }
+.track { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.fill { height: 100%; border-radius: 5px; width: 0; transition: width .35s ease; }
+.fill.pay { background: var(--accent); }
+.fill.sell { background: var(--alt); }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+
+.receipt { font-family: var(--font-num); font-size: 13px; display: grid; gap: 0; border-top: 1px dashed var(--line); padding-top: 10px; }
+.receipt .ln { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-variant-numeric: tabular-nums; }
+.receipt .ln span:first-child { font-family: var(--font-body); color: var(--muted); min-width: 0; }
+.receipt .ln small { display: block; font-size: 11px; }
+.receipt .ln .neg { color: var(--ink); white-space: nowrap; }
+.receipt .ln.zero .neg { color: var(--muted); }
+.receipt .total { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 10px; font-weight: 600; font-size: 14px; }
+.receipt .total span:first-child { color: var(--ink); font-weight: 600; }
+.tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--alt); background: var(--alt-soft); padding: 1px 6px; border-radius: 4px; margin-left: 4px; vertical-align: 1px; }
+.tag.warn { color: var(--loss); background: var(--loss-soft); }
+
+.note { font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.note b { color: var(--ink); font-family: var(--font-num); }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--surface); font: 600 14px var(--font-body); padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); border-color: var(--line); }
+.btn:hover { filter: brightness(1.05); }
+.toast { font-size: 13px; color: var(--gain); align-self: center; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+th { text-align: right; font-size: 12px; font-weight: 600; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+td { padding: 10px; border-bottom: 1px solid var(--line); text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td:first-child { font-family: var(--font-body); white-space: normal; }
+td.g { color: var(--gain); font-weight: 600; }
+td.l { color: var(--loss); font-weight: 600; }
+.ex { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.del { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.del:hover { color: var(--loss); background: var(--loss-soft); }
+.empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Mua trên sàn · Bán lại cho shop</span>
+    <h1>Săn Sale Bán Lại</h1>
+    <p>Nhập giá và các mã giảm, xem giá thực trả trên sàn rồi so với số tiền shop thu lại theo % giá gốc.</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card" aria-labelledby="h-buy">
+        <div class="card-head">
+          <h2 id="h-buy">Giá mua trên sàn</h2>
+          <span class="formula">gốc − ưu đãi − voucher shop − voucher sàn − xu</span>
+        </div>
+
+        <div class="field">
+          <label for="name">Tên sản phẩm</label>
+          <div class="input"><input id="name" class="plain" type="text" placeholder="Sản Phẩm A" value="Sản Phẩm A"></div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="goc">Giá gốc</label>
+            <div class="input"><input id="goc" data-kind="money" inputmode="numeric" autocomplete="off" value="1.290.000"><span class="unit">đ</span></div>
+          </div>
+          <div class="field">
+            <label for="ud">Ưu đãi sản phẩm</label>
+            <div class="input"><input id="ud" data-kind="money" inputmode="numeric" autocomplete="off" value="200.000"><span class="unit">đ</span></div>
+          </div>
+        </div>
+
+        <div class="voucher" id="v-shop">
+          <div class="voucher-top">
+            <label class="label" for="shopV">Voucher của shop</label>
+            <span class="hint">Trừ sau ưu đãi sản phẩm</span>
+          </div>
+          <div class="input">
+            <input id="shopV" data-kind="money" inputmode="decimal" autocomplete="off" value="50.000">
+            <div class="seg" role="group" aria-label="Loại voucher shop">
+              <button type="button" data-mode="money" aria-pressed="true">đ</button>
+              <button type="button" data-mode="pct" aria-pressed="false">%</button>
+            </div>
+          </div>
+          <div class="opts">
+            <div class="field">
+              <label class="hint" for="shopMin">Đơn tối thiểu</label>
+              <div class="input"><input id="shopMin" data-kind="money" inputmode="numeric" autocomplete="off" placeholder="Không yêu cầu"><span class="unit">đ</span></div>
+            </div>
+            <div class="field cap" hidden>
+              <label class="hint" for="shopCap">Giảm tối đa</label>
+              <div class="input"><input id="shopCap" data-kind="money" inputmode="numeric" autocomplete="off" placeholder="Không giới hạn"><span class="unit">đ</span></div>
+            </div>
+          </div>
+          <span class="hint warn-msg" hidden></span>
+        </div>
+
+        <div class="voucher" id="v-san">
+          <div class="voucher-top">
+            <label class="label" for="sanV">Voucher của sàn</label>
+            <span class="hint">Trừ sau voucher shop</span>
+          </div>
+          <div class="input">
+            <input id="sanV" data-kind="pct" inputmode="decimal" autocomplete="off" value="15">
+            <div class="seg" role="group" aria-label="Loại voucher sàn">
+              <button type="button" data-mode="money" aria-pressed="false">đ</button>
+              <button type="button" data-mode="pct" aria-pressed="true">%</button>
+            </div>
+          </div>
+          <div class="opts">
+            <div class="field">
+              <label class="hint" for="sanMin">Đơn tối thiểu</label>
+              <div class="input"><input id="sanMin" data-kind="money" inputmode="numeric" autocomplete="off" placeholder="Không yêu cầu" value="300.000"><span class="unit">đ</span></div>
+            </div>
+            <div class="field cap">
+              <label class="hint" for="sanCap">Giảm tối đa</label>
+              <div class="input"><input id="sanCap" data-kind="money" inputmode="numeric" autocomplete="off" placeholder="Không giới hạn" value="150.000"><span class="unit">đ</span></div>
+            </div>
+          </div>
+          <span class="hint warn-msg" hidden></span>
+        </div>
+
+        <div class="voucher">
+          <div class="voucher-top">
+            <label class="check" for="xuOn"><input id="xuOn" type="checkbox" checked> Dùng xu / thưởng</label>
+            <span class="hint">Xu Shopee, Thưởng TikTok · 1 xu = 1đ</span>
+          </div>
+          <div class="input"><input id="xu" data-kind="money" inputmode="numeric" autocomplete="off" value="20.000" aria-label="Số xu hoặc thưởng dùng"><span class="unit">đ</span></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-sell">
+        <div class="card-head">
+          <h2 id="h-sell">Giá bán lại cho shop</h2>
+          <span class="formula" id="sellFormula">gốc × 70%</span>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="pct">Shop thu vào</label>
+            <div class="input"><input id="pct" data-kind="pct" inputmode="decimal" autocomplete="off" value="70"><span class="unit">% giá gốc</span></div>
+          </div>
+          <div class="field">
+            <span class="label">Chọn nhanh</span>
+            <div class="chips" id="chips">
+              <button type="button" class="chip" data-v="60">60%</button>
+              <button type="button" class="chip" data-v="65">65%</button>
+              <button type="button" class="chip" data-v="70">70%</button>
+              <button type="button" class="chip" data-v="75">75%</button>
+              <button type="button" class="chip" data-v="80">80%</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="col result" aria-live="polite">
+      <section class="card">
+        <div class="verdict" id="verdict">
+          <div class="verdict-top">
+            <span class="label">Mua rồi bán lại, bạn</span>
+            <span class="pill" id="pill">—</span>
+          </div>
+          <div class="big" id="diff">—</div>
+        </div>
+
+        <div class="pair">
+          <div class="stat pay"><span class="k">Bạn trả trên sàn</span><span class="v" id="buyOut">—</span></div>
+          <div class="stat sell"><span class="k">Shop trả bạn</span><span class="v" id="sellOut">—</span></div>
+        </div>
+
+        <div class="bars">
+          <div class="bar">
+            <div class="bar-head"><span>Bạn trả so với giá gốc</span><b id="payPct">—</b></div>
+            <div class="track"><div class="fill pay" id="payBar"></div></div>
+          </div>
+          <div class="bar">
+            <div class="bar-head"><span>Shop thu so với giá gốc</span><b id="sellPct">—</b></div>
+            <div class="track"><div class="fill sell" id="sellBar"></div></div>
+          </div>
+        </div>
+
+        <div class="receipt" id="receipt"></div>
+
+        <div class="note" id="note"></div>
+
+        <div class="actions">
+          <button type="button" class="btn" id="save">Lưu vào bảng so sánh</button>
+          <button type="button" class="btn ghost" id="reset">Nhập sản phẩm mới</button>
+          <span class="toast" id="toast" hidden></span>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="card" aria-labelledby="h-list">
+    <div class="card-head">
+      <h2 id="h-list">Bảng so sánh</h2>
+      <span class="hint">Lưu trong trình duyệt này</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sản phẩm</th><th>Giá gốc</th><th>Giá mua</th><th>% thu</th><th>Shop thu</th><th>Chênh lệch</th><th><span hidden>Xóa</span></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="empty" hidden>Chưa có sản phẩm nào. Nhập giá ở trên rồi bấm “Lưu vào bảng so sánh”.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const nf = new Intl.NumberFormat('vi-VN');
+  const pf = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
+  const money = (n) => nf.format(Math.round(n)) + 'đ';
+  const signed = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + nf.format(Math.abs(Math.round(n))) + 'đ';
+
+  function readMoney(el) { const d = el.value.replace(/\D/g, ''); return d ? parseInt(d, 10) : 0; }
+  function readPct(el) { const v = parseFloat(el.value.replace(',', '.')); return isNaN(v) ? 0 : Math.min(100, Math.max(0, v)); }
+  function read(el) { return el.dataset.kind === 'pct' ? readPct(el) : readMoney(el); }
+
+  // Format money inputs with thousand separators, keeping the caret in place.
+  function onInput(e) {
+    const el = e.target;
+    if (el.dataset.kind === 'money') {
+      const pos = el.selectionStart || 0;
+      const before = el.value.slice(0, pos).replace(/\D/g, '').length;
+      const digits = el.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 13);
+      el.value = digits ? nf.format(parseInt(digits, 10)) : '';
+      let i = 0, c = 0;
+      while (i < el.value.length && c < before) { if (/\d/.test(el.value[i])) c++; i++; }
+      try { el.setSelectionRange(i, i); } catch (_) {}
+    } else if (el.dataset.kind === 'pct') {
+      let v = el.value.replace(/[^\d.,]/g, '');
+      const m = v.match(/^\d{0,3}([.,]\d{0,2})?/);
+      el.value = m ? m[0] : '';
+    }
+    recalc();
+  }
+  document.querySelectorAll('input[data-kind]').forEach((el) => el.addEventListener('input', onInput));
+  $('name').addEventListener('input', recalc);
+
+  // Voucher type toggles (đ / %)
+  function setupVoucher(boxId, inputId) {
+    const box = $(boxId), input = $(inputId), cap = box.querySelector('.cap');
+    box.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+      const mode = b.dataset.mode;
+      if (input.dataset.kind === mode) return;
+      const cur = read(input);
+      input.dataset.kind = mode;
+      if (mode === 'pct') input.value = cur > 0 && cur <= 100 ? String(cur) : '';
+      else input.value = cur > 0 ? nf.format(cur) : '';
+      box.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      cap.hidden = mode !== 'pct';
+      input.focus();
+      recalc();
+    }));
+  }
+  setupVoucher('v-shop', 'shopV');
+  setupVoucher('v-san', 'sanV');
+
+  $('xuOn').addEventListener('change', () => { $('xu').disabled = !$('xuOn').checked; recalc(); });
+
+  $('chips').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    $('pct').value = b.dataset.v; recalc();
+  });
+
+  // Min order is checked against the price the voucher applies to (after the deductions before it).
+  function applyVoucher(base, input, capEl, minEl) {
+    const v = read(input);
+    const info = { kind: input.dataset.kind, pct: v, val: v, cap: readMoney(capEl), min: readMoney(minEl), base };
+    if (v > 0 && info.min > 0 && base < info.min) return Object.assign(info, { amt: 0, blocked: true });
+    if (info.kind === 'pct') {
+      const raw = base * v / 100;
+      const capped = info.cap > 0 && raw > info.cap;
+      return Object.assign(info, { amt: Math.min(base, Math.round(capped ? info.cap : raw)), capped });
+    }
+    return Object.assign(info, { amt: Math.min(base, v) });
+  }
+  function showWarn(boxId, v) {
+    const el = $(boxId).querySelector('.warn-msg');
+    el.hidden = !v.blocked;
+    if (v.blocked) el.textContent = 'Chưa áp dụng: đơn đang ' + nf.format(v.base) + 'đ, cần từ ' + nf.format(v.min) + 'đ.';
+  }
+
+  let last = null;
+  function recalc() {
+    const goc = readMoney($('goc'));
+    const ud = Math.min(goc, readMoney($('ud')));
+    const p1 = goc - ud;
+    const shop = applyVoucher(p1, $('shopV'), $('shopCap'), $('shopMin'));
+    const p2 = p1 - shop.amt;
+    const san = applyVoucher(p2, $('sanV'), $('sanCap'), $('sanMin'));
+    showWarn('v-shop', shop);
+    showWarn('v-san', san);
+    const p3 = p2 - san.amt;
+    const xuOn = $('xuOn').checked;
+    const xu = xuOn ? Math.min(p3, readMoney($('xu'))) : 0;
+    const buy = p3 - xu;
+    const pct = readPct($('pct'));
+    const sell = Math.round(goc * pct / 100);
+    const diff = sell - buy;
+
+    $('sellFormula').textContent = 'gốc × ' + pf.format(pct) + '%';
+    document.querySelectorAll('#chips .chip').forEach((c) => c.setAttribute('aria-pressed', String(+c.dataset.v === pct)));
+
+    const verdict = $('verdict');
+    verdict.classList.remove('gain', 'loss');
+    if (!goc) {
+      $('diff').textContent = '—'; $('pill').textContent = 'Nhập giá gốc';
+      $('buyOut').textContent = '—'; $('sellOut').textContent = '—';
+      $('payPct').textContent = '—'; $('sellPct').textContent = '—';
+      $('payBar').style.width = '0'; $('sellBar').style.width = '0';
+      $('receipt').innerHTML = '';
+      $('note').textContent = 'Nhập giá gốc để bắt đầu tính.';
+      last = null; return;
+    }
+    if (diff > 0) { verdict.classList.add('gain'); $('pill').textContent = 'Có lãi'; }
+    else if (diff < 0) { verdict.classList.add('loss'); $('pill').textContent = 'Bị lỗ'; }
+    else { $('pill').textContent = 'Hòa vốn'; }
+    $('diff').textContent = signed(diff);
+    $('buyOut').textContent = money(buy);
+    $('sellOut').textContent = money(sell);
+
+    const payRatio = buy / goc * 100;
+    $('payPct').textContent = pf.format(payRatio) + '%';
+    $('sellPct').textContent = pf.format(pct) + '%';
+    $('payBar').style.width = Math.min(100, payRatio) + '%';
+    $('sellBar').style.width = Math.min(100, pct) + '%';
+
+    const vLabel = (v) => (v.kind === 'pct'
+      ? pf.format(v.pct) + '%' + (v.cap ? ', tối đa ' + nf.format(v.cap) + 'đ' : '')
+      : nf.format(v.val) + 'đ') + (v.min ? ' · đơn từ ' + nf.format(v.min) + 'đ' : '');
+    const vTag = (v) => v.blocked ? '<span class="tag warn">chưa đủ đơn</span>' : v.capped ? '<span class="tag">chạm trần</span>' : '';
+    const line = (label, sub, amt, extra) =>
+      '<div class="ln' + (amt ? '' : ' zero') + '"><span>' + label + (extra || '') + (sub ? '<small>' + sub + '</small>' : '') +
+      '</span><span class="neg">' + (amt ? '−' + nf.format(amt) : '0') + '</span></div>';
+
+    $('receipt').innerHTML =
+      '<div class="ln"><span>Giá gốc</span><span class="neg">' + nf.format(goc) + '</span></div>' +
+      line('Ưu đãi sản phẩm', '', ud) +
+      line('Voucher shop', vLabel(shop), shop.amt, vTag(shop)) +
+      line('Voucher sàn', vLabel(san), san.amt, vTag(san)) +
+      (xuOn ? line('Xu / thưởng', '', xu) : '') +
+      '<div class="ln total"><span>Giá mua thực tế</span><span>' + money(buy) + '</span></div>' +
+      '<div class="ln"><span>Tổng được giảm</span><span>' + nf.format(goc - buy) + 'đ · ' + pf.format(100 - payRatio) + '%</span></div>';
+
+    $('note').innerHTML = 'Hòa vốn khi shop thu từ <b>' + pf.format(payRatio) + '%</b> giá gốc trở lên. ' +
+      (diff >= 0
+        ? 'Mức ' + pf.format(pct) + '% hiện tại dư ' + pf.format(pct - payRatio) + ' điểm %.'
+        : 'Mức ' + pf.format(pct) + '% hiện tại còn thiếu ' + pf.format(payRatio - pct) + ' điểm %.');
+
+    last = { name: $('name').value.trim() || 'Sản Phẩm A', goc, buy, pct, sell, diff };
+  }
+
+  // Comparison table (per-browser storage)
+  const KEY = 'san-sale-ban-lai:rows';
+  const examples = [
+    { name: 'Tai nghe chống ồn', goc: 2490000, buy: 1640000, pct: 70, sell: 1743000, diff: 103000, ex: true },
+    { name: 'Nồi chiên không dầu', goc: 1590000, buy: 1190000, pct: 65, sell: 1033500, diff: -156500, ex: true },
+  ];
+  let rows;
+  try { const s = localStorage.getItem(KEY); rows = s ? JSON.parse(s) : examples.slice(); } catch (_) { rows = examples.slice(); }
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(rows)); } catch (_) {} };
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function renderRows() {
+    $('rows').innerHTML = rows.map((r, i) =>
+      '<tr><td>' + esc(r.name) + (r.ex ? '<span class="ex">(ví dụ)</span>' : '') + '</td>' +
+      '<td>' + nf.format(r.goc) + '</td><td>' + nf.format(r.buy) + '</td><td>' + pf.format(r.pct) + '%</td>' +
+      '<td>' + nf.format(r.sell) + '</td><td class="' + (r.diff > 0 ? 'g' : r.diff < 0 ? 'l' : '') + '">' + signed(r.diff) + '</td>' +
+      '<td><button type="button" class="del" data-i="' + i + '" aria-label="Xóa ' + esc(r.name) + '">×</button></td></tr>'
+    ).join('');
+    $('empty').hidden = rows.length > 0;
+  }
+  $('rows').addEventListener('click', (e) => {
+    const b = e.target.closest('.del'); if (!b) return;
+    rows.splice(+b.dataset.i, 1); persist(); renderRows();
+  });
+
+  let toastT;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
+  }
+  $('save').addEventListener('click', () => {
+    if (!last) { toast('Nhập giá gốc trước khi lưu.'); return; }
+    rows.unshift(Object.assign({}, last)); persist(); renderRows(); toast('Đã lưu vào bảng.');
+  });
+  $('reset').addEventListener('click', () => {
+    ['goc', 'shopV', 'sanV', 'shopCap', 'sanCap', 'shopMin', 'sanMin', 'xu'].forEach((id) => { $(id).value = ''; });
+    $('name').value = 'Sản Phẩm A';
+    $('ud').value = '0';
+    $('xuOn').checked = false; $('xu').disabled = true;
+    $('pct').value = '70';
+    // reset voucher modes to defaults: shop = đ, sàn = %
+    [['v-shop', 'shopV', 'money'], ['v-san', 'sanV', 'pct']].forEach(([box, inp, mode]) => {
+      $(inp).dataset.kind = mode;
+      $(box).querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.mode === mode)));
+      $(box).querySelector('.cap').hidden = mode !== 'pct';
+    });
+    $('goc').focus();
+    recalc();
+  });
+
+  recalc();
+  renderRows();
+})();
+</script>
+</body>
+</html>
