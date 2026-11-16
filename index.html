@@ -192,7 +192,7 @@ td.l { color: var(--loss); font-weight: 600; }
       <section class="card" aria-labelledby="h-buy">
         <div class="card-head">
           <h2 id="h-buy">Giá mua trên sàn</h2>
-          <span class="formula">gốc − ưu đãi − voucher shop − voucher sàn − xu</span>
+          <span class="formula">gốc − ưu đãi − voucher shop − voucher sàn − xu + phí ship</span>
         </div>
 
         <div class="field">
@@ -207,7 +207,7 @@ td.l { color: var(--loss); font-weight: 600; }
           </div>
           <div class="field">
             <label for="ud">Ưu đãi sản phẩm</label>
-            <div class="input"><input id="ud" data-kind="money" inputmode="numeric" autocomplete="off" value="200.000"><span class="unit">đ</span></div>
+            <div class="input"><input id="ud" data-kind="money" inputmode="numeric" autocomplete="off" value="0"><span class="unit">đ</span></div>
           </div>
         </div>
 
@@ -217,7 +217,7 @@ td.l { color: var(--loss); font-weight: 600; }
             <span class="hint">Trừ sau ưu đãi sản phẩm</span>
           </div>
           <div class="input">
-            <input id="shopV" data-kind="money" inputmode="decimal" autocomplete="off" value="50.000">
+            <input id="shopV" data-kind="money" inputmode="decimal" autocomplete="off" value="0">
             <div class="seg" role="group" aria-label="Loại voucher shop">
               <button type="button" data-mode="money" aria-pressed="true">đ</button>
               <button type="button" data-mode="pct" aria-pressed="false">%</button>
@@ -263,10 +263,16 @@ td.l { color: var(--loss); font-weight: 600; }
 
         <div class="voucher">
           <div class="voucher-top">
-            <label class="check" for="xuOn"><input id="xuOn" type="checkbox" checked> Dùng xu / thưởng</label>
+            <label class="check" for="xuOn"><input id="xuOn" type="checkbox"> Dùng xu / thưởng</label>
             <span class="hint">Xu Shopee, Thưởng TikTok · 1 xu = 1đ</span>
           </div>
-          <div class="input"><input id="xu" data-kind="money" inputmode="numeric" autocomplete="off" value="20.000" aria-label="Số xu hoặc thưởng dùng"><span class="unit">đ</span></div>
+          <div class="input"><input id="xu" data-kind="money" inputmode="numeric" autocomplete="off" value="0" disabled aria-label="Số xu hoặc thưởng dùng"><span class="unit">đ</span></div>
+        </div>
+
+        <div class="field">
+          <label for="ship">Phí ship phải trả</label>
+          <div class="input"><input id="ship" data-kind="money" inputmode="numeric" autocomplete="off" value="0"><span class="unit">đ</span></div>
+          <span class="hint">Phần phí vận chuyển còn lại sau khi trừ freeship. Được cộng vào giá mua.</span>
         </div>
       </section>
 
@@ -438,7 +444,9 @@ td.l { color: var(--loss); font-weight: 600; }
     const p3 = p2 - san.amt;
     const xuOn = $('xuOn').checked;
     const xu = xuOn ? Math.min(p3, readMoney($('xu'))) : 0;
-    const buy = p3 - xu;
+    const goods = p3 - xu;
+    const ship = readMoney($('ship'));
+    const buy = goods + ship;
     const pct = readPct($('pct'));
     const sell = Math.round(goc * pct / 100);
     const diff = sell - buy;
@@ -484,8 +492,9 @@ td.l { color: var(--loss); font-weight: 600; }
       line('Voucher shop', vLabel(shop), shop.amt, vTag(shop)) +
       line('Voucher sàn', vLabel(san), san.amt, vTag(san)) +
       (xuOn ? line('Xu / thưởng', '', xu) : '') +
+      '<div class="ln' + (ship ? '' : ' zero') + '"><span>Phí ship phải trả</span><span class="neg">' + (ship ? '+' + nf.format(ship) : '0') + '</span></div>' +
       '<div class="ln total"><span>Giá mua thực tế</span><span>' + money(buy) + '</span></div>' +
-      '<div class="ln"><span>Tổng được giảm</span><span>' + nf.format(goc - buy) + 'đ · ' + pf.format(100 - payRatio) + '%</span></div>';
+      '<div class="ln"><span>Tổng được giảm</span><span>' + nf.format(goc - goods) + 'đ · ' + pf.format((goc - goods) / goc * 100) + '%</span></div>';
 
     $('note').innerHTML = 'Hòa vốn khi shop thu từ <b>' + pf.format(payRatio) + '%</b> giá gốc trở lên. ' +
       (diff >= 0
@@ -530,7 +539,8 @@ td.l { color: var(--loss); font-weight: 600; }
     rows.unshift(Object.assign({}, last)); persist(); renderRows(); toast('Đã lưu vào bảng.');
   });
   $('reset').addEventListener('click', () => {
-    ['goc', 'shopV', 'sanV', 'shopCap', 'sanCap', 'shopMin', 'sanMin', 'xu'].forEach((id) => { $(id).value = ''; });
+    ['goc', 'sanV', 'shopCap', 'sanCap', 'shopMin', 'sanMin'].forEach((id) => { $(id).value = ''; });
+    ['shopV', 'xu', 'ship'].forEach((id) => { $(id).value = '0'; });
     $('name').value = 'Sản Phẩm A';
     $('ud').value = '0';
     $('xuOn').checked = false; $('xu').disabled = true;
